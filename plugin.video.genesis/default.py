@@ -20,20 +20,29 @@
 
 import urllib,urllib2,re,os,threading,datetime,time,base64,xbmc,xbmcplugin,xbmcgui,xbmcaddon,xbmcvfs
 from operator import itemgetter
-try:    import json
-except: import simplejson as json
-try:    from sqlite3 import dbapi2 as database
-except: from pysqlite2 import dbapi2 as database
-try:    import CommonFunctions
-except: import commonfunctionsdummy as CommonFunctions
-try:    import StorageServer
-except: import storageserverdummy as StorageServer
-from metahandler import metahandlers
-
+try:
+    import json
+except:
+    import simplejson as json
+try:
+    from sqlite3 import dbapi2 as database
+except:
+    from pysqlite2 import dbapi2 as database
+try:
+    import CommonFunctions as common
+except:
+    import commonfunctionsdummy as common
+try:
+    import StorageServer
+except:
+    import storageserverdummy as StorageServer
+try:
+    from metahandler import metahandlers
+    metaget = metahandlers.MetaData(preparezip=False)
+except:
+    pass
 
 action              = None
-common              = CommonFunctions
-metaget             = metahandlers.MetaData(preparezip=False)
 language            = xbmcaddon.Addon().getLocalizedString
 setSetting          = xbmcaddon.Addon().setSetting
 getSetting          = xbmcaddon.Addon().getSetting
@@ -336,7 +345,6 @@ class player(xbmc.Player):
     def resume_add(self):
         try:
             record = (self.name, 'tt' + self.imdb, str(self.currentTime))
-            if not xbmcvfs.exists(dataPath): xbmcvfs.mkdir(dataPath)
             dbcon = database.connect(addonSettings)
             dbcur = dbcon.cursor()
             dbcur.execute("CREATE TABLE IF NOT EXISTS points (""name TEXT, ""imdb_id TEXT, ""resume_point TEXT, ""UNIQUE(name, imdb_id)"");")
@@ -349,7 +357,6 @@ class player(xbmc.Player):
     def resume_delete(self):
         try:
             record = (self.name, 'tt' + self.imdb)
-            if not xbmcvfs.exists(dataPath): xbmcvfs.mkdir(dataPath)
             dbcon = database.connect(addonSettings)
             dbcur = dbcon.cursor()
             dbcur.execute("DELETE FROM points WHERE name = '%s' AND imdb_id = '%s'" % (record[0], record[1]))
@@ -563,87 +570,8 @@ class index:
         xbmc.executebuiltin('Container.Refresh')
 
     def container_data(self):
-        favData, favData2, viewData, offData, watchData = os.path.join(dataPath,'favourite_movies.list'), os.path.join(dataPath,'favourite_tv.list'), os.path.join(dataPath,'views.list'), os.path.join(dataPath,'offset.list'), os.path.join(dataPath,'watched.list')
-        if xbmcvfs.exists(favData) == 0 or xbmcvfs.exists(favData2) == 0 or xbmcvfs.exists(viewData) == 0 or xbmcvfs.exists(offData) == 0: return
-
-        try: xbmcvfs.delete(watchData)
-        except: pass
-
-        try:
-            dbcon = database.connect(addonSettings)
-            dbcur = dbcon.cursor()
-            dbcur.execute("CREATE TABLE IF NOT EXISTS favourites (""imdb_id TEXT, ""video_type TEXT, ""title TEXT, ""year TEXT, ""tvdb_id TEXT, ""genre TEXT, ""poster TEXT, ""banner TEXT, ""fanart TEXT, ""studio TEXT, ""premiered TEXT, ""duration TEXT, ""rating TEXT, ""votes TEXT, ""mpaa TEXT, ""director TEXT, ""writer TEXT, ""plot TEXT, ""plotoutline TEXT, ""tagline TEXT, ""UNIQUE(imdb_id)"");")
-            dbcur.execute("CREATE TABLE IF NOT EXISTS views (""skin TEXT, ""view_type TEXT, ""view_id TEXT, ""UNIQUE(skin, view_type)"");")
-            dbcur.execute("CREATE TABLE IF NOT EXISTS points (""name TEXT, ""imdb_id TEXT, ""resume_point TEXT, ""UNIQUE(name, imdb_id)"");")
-        except:
-            pass
-        try:
-            file = xbmcvfs.File(offData)
-            read = file.read()
-            file.close()
-            try: xbmcvfs.delete(offData)
-            except: pass
-            read = re.compile('"(.+?)"[|]"(.+?)"[|]"(.+?)"').findall(read)
-            read = [(i[0], 'tt' + i[1], i[2]) for i in read]
-            for a in read:
-                try:
-                    dbcur.execute("DELETE FROM points WHERE name = '%s'" % (a[0]))
-                    dbcur.execute("INSERT INTO points Values (?, ?, ?)", a)
-                except:
-                    pass
-        except:
-            pass
-        try:
-            file = xbmcvfs.File(viewData)
-            read = file.read()
-            file.close()
-            try: xbmcvfs.delete(viewData)
-            except: pass
-            read = re.compile('"(.+?)"[|]"(.+?)"[|]"(.+?)"').findall(read)
-            for b in read:
-                try:
-                    dbcur.execute("DELETE FROM views WHERE skin = '%s' AND view_type = '%s'" % (b[0], b[1]))
-                    dbcur.execute("INSERT INTO views Values (?, ?, ?)", b)
-                except:
-                    pass
-        except:
-            pass
-        try:
-            file = xbmcvfs.File(favData)
-            read = file.read()
-            file.close()
-            try: xbmcvfs.delete(favData)
-            except: pass
-            read = re.compile('"(.+?)"[|]"(.+?)"[|]"(.+?)"[|]".+?"[|]"(.+?)"').findall(read)
-            read = [('tt' + i[2], 'Movie', i[0], i[1], '', '', i[3], '', '', '', '', '', '', '', '', '', '', '', '', '') for i in read]
-            for c in read:
-                try:
-                    dbcur.execute("DELETE FROM favourites WHERE imdb_id = '%s'" % (c[0]))
-                    dbcur.execute("INSERT INTO favourites Values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", c)
-                except:
-                    pass
-        except:
-            pass
-        try:
-            file = xbmcvfs.File(favData2)
-            read = file.read()
-            file.close()
-            try: xbmcvfs.delete(favData2)
-            except: pass
-            read = re.compile('"(.+?)"[|]"(.+?)"[|]"(.+?)"[|]".+?"[|]"(.+?)"').findall(read)
-            read = [('tt' + i[2], 'TV Show', i[0], i[1], '', '', i[3], '', '', '', '', '', '', '', '', '', '', '', '', '') for i in read]
-            for d in read:
-                try:
-                    dbcur.execute("DELETE FROM favourites WHERE imdb_id = '%s'" % (d[0]))
-                    dbcur.execute("INSERT INTO favourites Values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", d)
-                except:
-                    pass
-        except:
-            pass
-        try:
-            dbcon.commit()
-        except:
-            pass
+        if not xbmcvfs.exists(dataPath):
+            xbmcvfs.mkdir(dataPath)
 
     def container_view(self, content, viewDict):
         try:
@@ -665,15 +593,18 @@ class index:
 
     def settings_reset(self):
         try:
-            if getSetting("settings_version") == '2.0.6': return
+            if getSetting("settings_version") == '2.1.3': return
             settings = os.path.join(addonPath,'resources/settings.xml')
             file = xbmcvfs.File(settings)
             read = file.read()
             file.close()
-            #setSetting('appearance', common.parseDOM(read, "setting", ret="default", attrs = {"id": 'appearance'})[0])
-            #for i in range (1,14): setSetting('hosthd' + str(i), common.parseDOM(read, "setting", ret="default", attrs = {"id": 'hosthd' + str(i)})[0])
-            for i in range (1,21): setSetting('host' + str(i), common.parseDOM(read, "setting", ret="default", attrs = {"id": 'host' + str(i)})[0])
-            setSetting('settings_version', '2.0.6')
+            for i in range (1,14):
+                setSetting('hosthd' + str(i), common.parseDOM(read, "setting", ret="default", attrs = {"id": 'hosthd' + str(i)})[0])
+                xbmc.sleep(100)
+            for i in range (1,21):
+                setSetting('host' + str(i), common.parseDOM(read, "setting", ret="default", attrs = {"id": 'host' + str(i)})[0])
+                xbmc.sleep(100)
+            setSetting('settings_version', '2.1.3')
         except:
             return
 
@@ -781,7 +712,6 @@ class index:
 
                 meta = {'title': title, 'year': year, 'imdb_id' : 'tt' + imdb, 'genre' : genre, 'poster' : poster, 'fanart' : fanart, 'studio' : studio, 'duration' : duration, 'rating': rating, 'votes': votes, 'mpaa': mpaa, 'director': director, 'plot': plot, 'plotoutline': plotoutline, 'tagline': tagline}
                 meta = dict((k,v) for k, v in meta.iteritems() if not v == '0')
-                sysmeta = urllib.quote_plus(json.dumps(meta))
 
                 u = '%s?action=play&name=%s&title=%s&year=%s&imdb=%s&url=%s&t=%s' % (sys.argv[0], sysname, systitle, sysyear, sysimdb, sysurl, datetime.datetime.now().strftime("%Y%m%d%H%M%S%f"))
 
@@ -1136,6 +1066,7 @@ class index:
                 sysname, systitle, sysyear, sysimdb, systvdb, sysseason, sysepisode, sysshow, sysshow_alt, sysurl, sysimage, sysdate, sysgenre = urllib.quote_plus(name), urllib.quote_plus(title), urllib.quote_plus(year), urllib.quote_plus(imdb), urllib.quote_plus(tvdb), urllib.quote_plus(season), urllib.quote_plus(episode), urllib.quote_plus(show), urllib.quote_plus(show_alt), urllib.quote_plus(url), urllib.quote_plus(poster), urllib.quote_plus(premiered), urllib.quote_plus(genre)
 
                 meta = {'title': title, 'year': year, 'imdb_id' : 'tt' + imdb, 'tvdb_id' : tvdb, 'season' : season, 'episode': episode, 'tvshowtitle': show, 'genre' : genre, 'poster' : poster, 'banner' : banner, 'thumb' : thumb, 'fanart' : fanart, 'studio': studio, 'status': status, 'premiered' : premiered, 'duration' : duration, 'rating': rating, 'mpaa' : mpaa, 'director': director, 'writer': writer, 'plot': plot}
+                meta = dict((k,v) for k, v in meta.iteritems() if not v == '0')
                 sysmeta = urllib.quote_plus(json.dumps(meta))
 
                 if video_type == 'true':
@@ -1301,7 +1232,6 @@ class contextMenu:
                 label = xbmc.getInfoLabel('Control.GetLabel(%s)' % (view))
                 if not (label == '' or label == None): break
             record = (skin, content, str(view))
-            if not xbmcvfs.exists(dataPath): xbmcvfs.mkdir(dataPath)
             dbcon = database.connect(addonSettings)
             dbcur = dbcon.cursor()
             dbcur.execute("CREATE TABLE IF NOT EXISTS views (""skin TEXT, ""view_type TEXT, ""view_id TEXT, ""UNIQUE(skin, view_type)"");")
@@ -1317,7 +1247,6 @@ class contextMenu:
         try:
             record = ('tt' + imdb, type, name, year, '', '', image, '', '', '', '', '', '', '', '', '', '', '', '', '')
 
-            if not xbmcvfs.exists(dataPath): xbmcvfs.mkdir(dataPath)
             dbcon = database.connect(addonSettings)
             dbcur = dbcon.cursor()
             dbcur.execute("CREATE TABLE IF NOT EXISTS favourites (""imdb_id TEXT, ""video_type TEXT, ""title TEXT, ""year TEXT, ""tvdb_id TEXT, ""genre TEXT, ""poster TEXT, ""banner TEXT, ""fanart TEXT, ""studio TEXT, ""premiered TEXT, ""duration TEXT, ""rating TEXT, ""votes TEXT, ""mpaa TEXT, ""director TEXT, ""writer TEXT, ""plot TEXT, ""plotoutline TEXT, ""tagline TEXT, ""UNIQUE(imdb_id)"");")
@@ -1334,7 +1263,6 @@ class contextMenu:
         try:
             record = ['tt' + imdb]
 
-            if not xbmcvfs.exists(dataPath): xbmcvfs.mkdir(dataPath)
             dbcon = database.connect(addonSettings)
             dbcur = dbcon.cursor()
             dbcur.execute("DELETE FROM favourites WHERE imdb_id = '%s'" % (record[0]))
@@ -1424,7 +1352,6 @@ class contextMenu:
             result = getUrl(url, post=post, timeout='30').result
             updated = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             record = ('movies', link().trakt_user, result, updated)
-            if not xbmcvfs.exists(dataPath): xbmcvfs.mkdir(dataPath)
             dbcon = database.connect(addonCache)
             dbcur = dbcon.cursor()
             dbcur.execute("CREATE TABLE IF NOT EXISTS trakt (""info TEXT, ""user TEXT, ""result TEXT, ""updated TEXT, ""UNIQUE(info, user)"");")
@@ -1441,7 +1368,6 @@ class contextMenu:
             result = getUrl(url, post=post, timeout='30').result
             updated = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             record = ('shows', link().trakt_user, result, updated)
-            if not xbmcvfs.exists(dataPath): xbmcvfs.mkdir(dataPath)
             dbcon = database.connect(addonCache)
             dbcur = dbcon.cursor()
             dbcur.execute("CREATE TABLE IF NOT EXISTS trakt (""info TEXT, ""user TEXT, ""result TEXT, ""updated TEXT, ""UNIQUE(info, user)"");")
@@ -1586,7 +1512,6 @@ class contextMenu:
 
         try:
             if not filter == []: return
-            if not xbmcvfs.exists(dataPath): xbmcvfs.mkdir(dataPath)
             if not xbmcvfs.exists(movieLibrary): xbmcvfs.mkdir(movieLibrary)
 
             sysname, systitle, sysyear, sysimdb, sysurl = urllib.quote_plus(name), urllib.quote_plus(title), urllib.quote_plus(year), urllib.quote_plus(imdb), urllib.quote_plus(url)
@@ -1727,7 +1652,6 @@ class contextMenu:
 
         for i in match:
             try:
-                if not xbmcvfs.exists(dataPath): xbmcvfs.mkdir(dataPath)
                 if not xbmcvfs.exists(tvLibrary): xbmcvfs.mkdir(tvLibrary)
 
                 name, title, year, imdb, tvdb, season, episode, show, show_alt, date, genre, url = i['name'], i['title'], i['year'], i['imdb'], i['tvdb'], i['season'], i['episode'], i['show'], i['show_alt'], i['date'], i['genre'], i['url']
@@ -4496,8 +4420,8 @@ class resolver:
         global global_sources
         global_sources = []
 
-        #sourceDict = [('icefilms', 'true'), ('primewire', 'true'), ('movie25', 'true'), ('iwatchonline', 'true'), ('movieshd', 'true'), ('popcornered', 'true'), ('muchmovies', 'true'), ('yify', 'true'), ('vkbox', 'true'), ('istreamhd', 'true'), ('simplymovies', 'true'), ('moviestorm', 'true'), ('noobroom', 'false'), ('einthusan', 'false')]
-        sourceDict = [('icefilms', getSetting("icefilms")), ('primewire', getSetting("primewire")), ('movie25', getSetting("movie25")), ('iwatchonline', getSetting("iwatchonline")), ('movieshd', getSetting("movieshd")), ('popcornered', getSetting("popcornered")), ('muchmovies', getSetting("muchmovies")), ('yify', getSetting("yify")), ('vkbox', getSetting("vkbox")), ('istreamhd', getSetting("istreamhd")), ('simplymovies', getSetting("simplymovies")), ('moviestorm', getSetting("moviestorm")), ('noobroom', getSetting("noobroom")), ('einthusan', getSetting("einthusan"))]
+        #sourceDict = [('icefilms', 'true'), ('primewire', 'true'), ('movie25', 'true'), ('iwatchonline', 'true'), ('movieshd', 'true'), ('popcornered', 'true'), ('muchmovies', 'true'), ('niter', 'true'), ('yify', 'true'), ('vkbox', 'true'), ('istreamhd', 'true'), ('simplymovies', 'true'), ('moviestorm', 'true'), ('einthusan', 'false'), ('noobroom', 'false'), ('furk', 'false')]
+        sourceDict = [('icefilms', getSetting("icefilms")), ('primewire', getSetting("primewire")), ('movie25', getSetting("movie25")), ('iwatchonline', getSetting("iwatchonline")), ('movieshd', getSetting("movieshd")), ('popcornered', getSetting("popcornered")), ('muchmovies', getSetting("muchmovies")), ('niter', getSetting("niter")), ('yify', getSetting("yify")), ('vkbox', getSetting("vkbox")), ('istreamhd', getSetting("istreamhd")), ('simplymovies', getSetting("simplymovies")), ('moviestorm', getSetting("moviestorm")), ('einthusan', getSetting("einthusan")), ('noobroom', getSetting("noobroom")), ('furk', getSetting("furk"))]
 
         threads = []
         sourceDict = [i[0] for i in sourceDict if i[1] == 'true']
@@ -4513,8 +4437,8 @@ class resolver:
         global global_sources
         global_sources = []
 
-        #sourceDict = [('icefilms', 'true'), ('primewire', 'true'), ('watchseries', 'true'), ('iwatchonline', 'true'), ('shush', 'true'), ('ororo', 'true'), ('vkbox', 'true'), ('istreamhd', 'true'), ('clickplay', 'true'), ('simplymovies', 'true'), ('moviestorm', 'true'), ('noobroom', 'false')]
-        sourceDict = [('icefilms', getSetting("icefilms_tv")), ('primewire', getSetting("primewire_tv")), ('watchseries', getSetting("watchseries_tv")), ('iwatchonline', getSetting("iwatchonline_tv")), ('shush', getSetting("shush_tv")), ('ororo', getSetting("ororo_tv")), ('vkbox', getSetting("vkbox_tv")), ('istreamhd', getSetting("istreamhd_tv")), ('clickplay', getSetting("clickplay_tv")), ('simplymovies', getSetting("simplymovies_tv")), ('moviestorm', getSetting("moviestorm_tv")), ('noobroom', getSetting("noobroom_tv"))]
+        #sourceDict = [('icefilms', 'true'), ('primewire', 'true'), ('watchseries', 'true'), ('iwatchonline', 'true'), ('shush', 'true'), ('ororo', 'true'), ('vkbox', 'true'), ('istreamhd', 'true'), ('clickplay', 'true'), ('simplymovies', 'true'), ('moviestorm', 'true'), ('noobroom', 'false'), ('furk', 'false')]
+        sourceDict = [('icefilms', getSetting("icefilms_tv")), ('primewire', getSetting("primewire_tv")), ('watchseries', getSetting("watchseries_tv")), ('iwatchonline', getSetting("iwatchonline_tv")), ('shush', getSetting("shush_tv")), ('ororo', getSetting("ororo_tv")), ('vkbox', getSetting("vkbox_tv")), ('istreamhd', getSetting("istreamhd_tv")), ('clickplay', getSetting("clickplay_tv")), ('simplymovies', getSetting("simplymovies_tv")), ('moviestorm', getSetting("moviestorm_tv")), ('noobroom', getSetting("noobroom_tv")), ('furk', getSetting("furk_tv"))]
 
         threads = []
         sourceDict = [i[0] for i in sourceDict if i[1] == 'true']
@@ -4654,6 +4578,7 @@ class resolver:
             elif provider == 'MoviesHD': url = movieshd().resolve(url)
             elif provider == 'Popcornered': url = popcornered().resolve(url)
             elif provider == 'Muchmovies': url = muchmovies().resolve(url)
+            elif provider == 'Niter': url = niter().resolve(url)
             elif provider == 'YIFY': url = yify().resolve(url)
             elif provider == 'Shush': url = shush().resolve(url)
             elif provider == 'Ororo': url = ororo().resolve(url)
@@ -4662,17 +4587,20 @@ class resolver:
             elif provider == 'Clickplay': url = clickplay().resolve(url)
             elif provider == 'Simplymovies': url = simplymovies().resolve(url)
             elif provider == 'Moviestorm': url = moviestorm().resolve(url)
-            elif provider == 'Noobroom': url = noobroom().resolve(url)
             elif provider == 'Einthusan': url = einthusan().resolve(url)
+            elif provider == 'Noobroom': url = noobroom().resolve(url)
+            elif provider == 'Furk': url = furk().resolve(url)
             return url
         except:
             return
 
     def sources_filter(self):
-        #hd_rank = ['VK', 'Videomega', 'Popcornered', 'Muchmovies', 'Shush', 'YIFY', 'Noobroom', 'Firedrive', 'Movreel', 'Billionuploads', '180upload', 'Hugefiles', 'Einthusan']
-        #sd_rank = ['Ororo', 'Firedrive', 'Putlocker', 'Sockshare', 'Streamin', 'Noobroom', 'iShared', 'Movreel', 'Mightyupload', 'VK', 'Mailru', 'Movshare', 'Promptfile', 'Vodlocker', 'Played', 'Gorillavid', 'Bestreams', 'Daclips', 'Divxstage', 'Vidbull']
-        hd_rank = [getSetting("hosthd1"), getSetting("hosthd2"), getSetting("hosthd3"), getSetting("hosthd4"), getSetting("hosthd5"), getSetting("hosthd6"), getSetting("hosthd7"), getSetting("hosthd8"), getSetting("hosthd9"), getSetting("hosthd10"), getSetting("hosthd11"), getSetting("hosthd12"), getSetting("hosthd13")]
-        sd_rank = [getSetting("host1"), getSetting("host2"), getSetting("host3"), getSetting("host4"), getSetting("host5"), getSetting("host6"), getSetting("host7"), getSetting("host8"), getSetting("host9"), getSetting("host10"), getSetting("host11"), getSetting("host12"), getSetting("host13"), getSetting("host14"), getSetting("host15"), getSetting("host16"), getSetting("host17"), getSetting("host18"), getSetting("host19"), getSetting("host20")]
+        hd_rank = ['Noobroom', 'Furk']
+        sd_rank = ['Noobroom', 'Furk']
+        #hd_rank += ['VK', 'Popcornered', 'Muchmovies', 'Shush', 'Videomega', 'Niter', 'YIFY', 'Firedrive', 'Movreel', 'Billionuploads', '180upload', 'Hugefiles', 'Einthusan']
+        #sd_rank += ['Firedrive', 'Putlocker', 'Sockshare', 'Movreel', 'Ororo', 'Streamin', 'Grifthost', 'iShared', 'Mightyupload', 'VK', 'Mailru', 'Movshare', 'Promptfile', 'Vodlocker', 'Played', 'Gorillavid', 'Bestreams', 'Daclips', 'Divxstage', 'Vidbull']
+        hd_rank += [getSetting("hosthd1"), getSetting("hosthd2"), getSetting("hosthd3"), getSetting("hosthd4"), getSetting("hosthd5"), getSetting("hosthd6"), getSetting("hosthd7"), getSetting("hosthd8"), getSetting("hosthd9"), getSetting("hosthd10"), getSetting("hosthd11"), getSetting("hosthd12"), getSetting("hosthd13")]
+        sd_rank += [getSetting("host1"), getSetting("host2"), getSetting("host3"), getSetting("host4"), getSetting("host5"), getSetting("host6"), getSetting("host7"), getSetting("host8"), getSetting("host9"), getSetting("host10"), getSetting("host11"), getSetting("host12"), getSetting("host13"), getSetting("host14"), getSetting("host15"), getSetting("host16"), getSetting("host17"), getSetting("host18"), getSetting("host19"), getSetting("host20")]
 
         hd_rank = uniqueList(hd_rank).list
         sd_rank = uniqueList(sd_rank).list
@@ -4681,12 +4609,14 @@ class resolver:
         self.sources = sorted(self.sources, key=itemgetter('source'))
 
         filter = []
+        for host in hd_rank: filter += [i for i in self.sources if i['quality'] == '1080p' and i['source'].lower() == host.lower()]
         for host in hd_rank: filter += [i for i in self.sources if i['quality'] == 'HD' and i['source'].lower() == host.lower()]
-        for host in sd_rank: filter += [i for i in self.sources if not i['quality'] == 'HD' and i['source'].lower() == host.lower()]
-        filter += [i for i in self.sources if not i['quality'] == 'HD' and not any(x == i['source'].lower() for x in [r.lower() for r in sd_rank])]
+        for host in sd_rank: filter += [i for i in self.sources if not i['quality'] in ['1080p', 'HD'] and i['source'].lower() == host.lower()]
+        filter += [i for i in self.sources if not i['quality'] in ['1080p', 'HD'] and not any(x == i['source'].lower() for x in [r.lower() for r in sd_rank])]
         self.sources = filter
 
         filter = []
+        filter += [i for i in self.sources if i['quality'] == '1080p']
         filter += [i for i in self.sources if i['quality'] == 'HD']
         filter += [i for i in self.sources if i['quality'] == 'SD']
         if len(filter) < 10: filter += [i for i in self.sources if i['quality'] == 'SCR']
@@ -4694,12 +4624,15 @@ class resolver:
         self.sources = filter
 
         if getSetting("play_hd") == 'false':
-            self.sources = [i for i in self.sources if not i['quality'] == 'HD']
+            self.sources = [i for i in self.sources if not i['quality'] in ['1080p', 'HD']]
 
         count = 1
         for i in range(len(self.sources)):
+            source = '%02d | [B]%s[/B] | ' % (count, self.sources[i]['provider'])
+            try: source += '%s' % (self.sources[i]['info'])
+            except: source += '%s | %s' % (self.sources[i]['source'], self.sources[i]['quality'])
             self.sources[i]['host'] = self.sources[i]['source']
-            self.sources[i]['source'] = str('%02d' % count) + ' | [B]' + self.sources[i]['provider'].upper() + '[/B] | ' + self.sources[i]['source'].upper() + ' | ' + self.sources[i]['quality']
+            self.sources[i]['source'] = source.upper()
             count = count + 1
 
         return self.sources
@@ -4723,33 +4656,36 @@ class resolver:
             return
 
     def sources_direct(self):
-        hd_blocks = ['Muchmovies', 'Firedrive', 'Movreel', 'Billionuploads', '180upload', 'Hugefiles']
-        hd_blocks = [i.lower() for i in hd_blocks]
+        blocks = ['furk']
+        hd_blocks = ['muchmovies', 'firedrive', 'movreel', 'billionuploads', '180upload', 'hugefiles']
+
+        self.sources = [i for i in self.sources if not i['host'] in blocks]
 
         if not (getSetting("realdedrid_user") == '' or getSetting("realdedrid_password") == ''):
             try:
                 filter = []
                 rd_hosts = getUrl('https://real-debrid.com/api/hosters.php').result
-                rd_hosts = [i.split('.')[0].replace('"', '').lower() for i in rd_hosts.split(',')]
+                rd_hosts = json.loads('[%s]' % rd_hosts)
+                rd_hosts = [i.rsplit('.' ,1)[0].lower() for i in rd_hosts]
                 filter += [i for i in self.sources if i['quality'] == 'HD' and i['host'] in rd_hosts]
                 filter += [i for i in self.sources if i['quality'] == 'HD' and not i['host'] in hd_blocks]
-                filter += [i for i in self.sources if not i['quality'] == 'HD' and i['host'] in rd_hosts]
-                filter += [i for i in self.sources if not i['quality'] == 'HD' and not i['host'] in rd_hosts]
+                filter += [i for i in self.sources if i['quality'] in ['SD', 'SCR', 'CAM'] and i['host'] in rd_hosts]
+                filter += [i for i in self.sources if i['quality'] in ['SD', 'SCR', 'CAM'] and not i['host'] in rd_hosts]
                 self.sources = filter
             except:
                 pass
         else:
-            self.sources = [i for i in self.sources if not i['host'] in hd_blocks]
+            self.sources = [i for i in self.sources if not (i['host'] in hd_blocks and i['quality'] in ['1080p', 'HD'])]
 
         if getSetting("autoplay_hd") == 'false':
-            self.sources = [i for i in self.sources if not i['quality'] == 'HD']
+            self.sources = [i for i in self.sources if not i['quality'] in ['1080p', 'HD']]
 
         u = None
 
         for i in self.sources:
             try:
                 url = self.sources_resolve(i['url'], i['provider'])
-                xbmc.sleep(1000)
+                xbmc.sleep(100)
                 if url == None: raise Exception()
                 if u == None: u = url
 
@@ -4786,6 +4722,7 @@ class resolver:
         'filenuke',
         'firedrive',
         'gorillavid',
+        'grifthost',
         'hostingbulk',
         #'hugefiles',
         'ishared',
@@ -5567,6 +5504,82 @@ class muchmovies:
         except:
             return
 
+class niter:
+    def __init__(self):
+        self.base_link = 'http://niter.tv'
+        self.search_link = '/typeahead/%s'
+        self.movie_link = '/movies/%s'
+        self.pk_link = '/player/pk/pk/plugins/player_p2.php?url=%s'
+
+    def get_movie(self, imdb, title, year):
+        try:
+            query = urllib.quote(title)
+            query = self.base_link + self.search_link % query
+
+            request = urllib2.Request(query)
+            request.add_header('X-Requested-With', 'XMLHttpRequest')
+            response = urllib2.urlopen(request, timeout=5)
+            result = response.read()
+            response.close()
+
+            title = resolver().cleantitle_movie(title)
+            years = [str(year), str(int(year)+1), str(int(year)-1)]
+            result = json.loads(result)
+            url = [i['id'] for i in result if title == resolver().cleantitle_movie(i['title'])][0]
+            url = self.base_link + self.movie_link % str(url)
+
+            result = getUrl(url).result
+            result = common.parseDOM(result, "a", attrs = { "class": "title-title" })[0]
+            y = re.compile('(\d{4})').findall(result)[-1]
+            if not any(x == str(y) for x in years): raise Exception()
+
+            url = url.replace(self.base_link, '')
+            url = common.replaceHTMLCodes(url)
+            url = url.encode('utf-8')
+            return url
+        except:
+            return
+
+    def get_sources(self, url, hostDict):
+        try:
+            sources = []
+
+            base = self.base_link + url
+            result = getUrl(base).result
+            result = common.parseDOM(result, "div", attrs = { "id": "videoParameter" })[0]
+            result = result.replace('pic=', '')
+
+            links = result.split('&')[:3]
+
+            for i in links:
+                try:
+                    url = self.base_link + self.pk_link % i
+                    result = getUrl(url, referer=base).result
+                    result = json.loads(result)
+
+                    url = [i['url'] for i in result if 'x-shockwave-flash' in i['type']]
+                    url += [i['url'] for i in result if 'video/mpeg4' in i['type']]
+                    url = url[-1]
+                    url = common.replaceHTMLCodes(url)
+                    url = url.encode('utf-8')
+
+                    sources.append({'source': 'Niter', 'quality': 'HD', 'provider': 'Niter', 'url': url})
+                except:
+                    pass
+
+            return sources
+        except:
+            return sources
+
+    def resolve(self, url):
+        try:
+            url = getUrl(url, output='geturl').result
+            if 'requiressl=yes' in url: url = url.replace('http://', 'https://')
+            else: url = url.replace('https://', 'http://')
+            return url
+        except:
+            return
+
 class yify:
     def __init__(self):
         self.base_link = 'http://yify.tv'
@@ -5699,7 +5712,7 @@ class shush:
             if result[1].startswith('http'):
                 p = result[0].replace('proxy.swf', 'pluginslist.xml')
                 p = getUrl(p).result
-                p = re.compile('url="(http.+?)p.swf').findall(p)[0]
+                p = re.compile('url="(http://.+?/.+?/).+?[.]swf').findall(p)[-1]
                 p = p + 'plugins_player.php'
 
                 post = urllib.urlencode({'url': result[1]})
@@ -6292,6 +6305,63 @@ class moviestorm:
         except:
             return
 
+class einthusan:
+    def __init__(self):
+        self.base_link = 'http://www.einthusan.com'
+        self.search_link = '/search/?search_query=%s&lang=%s'
+
+    def get_movie(self, imdb, title, year):
+        try:
+            search = 'http://www.imdbapi.com/?i=tt%s' % imdb
+            search = getUrl(search).result
+            search = json.loads(search)
+            country = [i.strip() for i in search['Country'].split(',')]
+            if not 'India' in country: return
+
+            languages = ['hindi', 'tamil', 'telugu', 'malayalam']
+            language = [i.strip().lower() for i in search['Language'].split(',')]
+            language = [i for i in language if any(x == i for x in languages)][0]
+
+            query = urllib.quote_plus(title)
+            query = self.base_link + self.search_link % (query, language)
+
+            result = getUrl(query).result
+            result = common.parseDOM(result, "div", attrs = { "class": "search-category" })
+            result = [i for i in result if 'Movies' in common.parseDOM(i, "p")[0]][0]
+            result = common.parseDOM(result, "li")
+
+            title = resolver().cleantitle_movie(title)
+            years = ['(%s)' % str(year), '(%s)' % str(int(year)+1), '(%s)' % str(int(year)-1)]
+            result = [(common.parseDOM(i, "a", ret="href")[0], common.parseDOM(i, "a")[0]) for i in result]
+            r = [i for i in result if any(x in i[1] for x in years)]
+            if not len(r) == 0: result = r
+            result = [i[0] for i in result if title == resolver().cleantitle_movie(i[1])][0]
+
+            url = result.replace(self.base_link, '')
+            url = url.replace('../', '/')
+            url = common.replaceHTMLCodes(url)
+            url = url.encode('utf-8')
+            return url
+        except:
+            return
+
+    def get_sources(self, url, hostDict):
+        try:
+            sources = []
+            url = self.base_link + url
+            sources.append({'source': 'Einthusan', 'quality': 'HD', 'provider': 'Einthusan', 'url': url})
+            return sources
+        except:
+            return sources
+
+    def resolve(self, url):
+        try:
+            result = getUrl(url).result
+            url = re.compile("'file': '(.+?)'").findall(result)[0]
+            return url
+        except:
+            return
+
 class noobroom:
     def __init__(self):
         self.base_link = 'http://superchillin.com'
@@ -6412,40 +6482,41 @@ class noobroom:
         except:
             return
 
-class einthusan:
+class furk:
     def __init__(self):
-        self.base_link = 'http://www.einthusan.com'
-        self.search_link = '/search/?search_query=%s&lang=%s'
+        self.base_link = 'http://api.furk.net'
+        self.search_link = '/api/plugins/metasearch'
+        self.login_link = '/api/login/login'
+        self.user = getSetting("furk_user")
+        self.password = getSetting("furk_password")
 
     def get_movie(self, imdb, title, year):
         try:
-            search = 'http://www.imdbapi.com/?i=tt%s' % imdb
-            search = getUrl(search).result
-            search = json.loads(search)
-            country = [i.strip() for i in search['Country'].split(',')]
-            if not 'India' in country: return
+            if (self.user == '' or self.password == ''): raise Exception()
 
-            languages = ['hindi', 'tamil', 'telugu', 'malayalam']
-            language = [i.strip().lower() for i in search['Language'].split(',')]
-            language = [i for i in language if any(x == i for x in languages)][0]
+            url = '%s %s' % (title, year)
+            url = common.replaceHTMLCodes(url)
+            url = url.encode('utf-8')
+            return url
+        except:
+            return
 
-            query = urllib.quote_plus(title)
-            query = self.base_link + self.search_link % (query, language)
+    def get_show(self, imdb, show, show_alt, year):
+        try:
+            if (self.user == '' or self.password == ''): raise Exception()
 
-            result = getUrl(query).result
-            result = common.parseDOM(result, "div", attrs = { "class": "search-category" })
-            result = [i for i in result if 'Movies' in common.parseDOM(i, "p")[0]][0]
-            result = common.parseDOM(result, "li")
+            url = show
+            url = common.replaceHTMLCodes(url)
+            url = url.encode('utf-8')
+            return url
+        except:
+            return
 
-            title = resolver().cleantitle_movie(title)
-            years = ['(%s)' % str(year), '(%s)' % str(int(year)+1), '(%s)' % str(int(year)-1)]
-            result = [(common.parseDOM(i, "a", ret="href")[0], common.parseDOM(i, "a")[0]) for i in result]
-            r = [i for i in result if any(x in i[1] for x in years)]
-            if not len(r) == 0: result = r
-            result = [i[0] for i in result if title == resolver().cleantitle_movie(i[1])][0]
+    def get_episode(self, url, title, date, season, episode):
+        try:
+            if (self.user == '' or self.password == ''): raise Exception()
 
-            url = result.replace(self.base_link, '')
-            url = url.replace('../', '/')
+            url = '%s S%02dE%02d' % (url, int(season), int(episode))
             url = common.replaceHTMLCodes(url)
             url = url.encode('utf-8')
             return url
@@ -6455,16 +6526,101 @@ class einthusan:
     def get_sources(self, url, hostDict):
         try:
             sources = []
-            url = self.base_link + url
-            sources.append({'source': 'Einthusan', 'quality': 'HD', 'provider': 'Einthusan', 'url': url})
+
+            if (self.user == '' or self.password == ''): raise Exception()
+
+            query = self.base_link + self.login_link
+            post = urllib.urlencode({'login': self.user, 'pwd': self.password})
+            result = getUrl(query, post=post, close=False).result
+
+            query = self.base_link + self.search_link
+            post = urllib.urlencode({'sort': 'relevance', 'filter': 'cached', 'moderated': 'yes', 'offset': '0', 'limit': '100', 'match': 'all', 'q': url})
+            result = getUrl(query, post=post).result
+            result = json.loads(result)
+            links = result['files']
+
+            title, hdlr = re.compile('(.+?) (\d{4}|S\d*E\d*)$').findall(url)[0]
+
+            if hdlr.isdigit():
+                type = 'movie'
+                title = resolver().cleantitle_movie(title)
+                hdlr = [str(hdlr), str(int(hdlr)+1), str(int(hdlr)-1)]
+            else:
+                type = 'episode'
+                title = resolver().cleantitle_tv(title)
+                hdlr = [hdlr]
+
+            for i in links:
+                try:
+                    info = i['video_info']
+                    if type == 'movie' and not '#0:1(eng): Audio:' in info: raise Exception()
+
+                    name = i['name']
+                    name = common.replaceHTMLCodes(name)
+
+                    t = re.sub('(\.|\(|\[|\s)(\d{4}|S\d*E\d*|3D)(\.|\)|\]|\s)(.+)', '', name)
+                    if type == 'movie': t = resolver().cleantitle_movie(t)
+                    else: t = resolver().cleantitle_tv(t)
+                    if not t == title: raise Exception()
+
+                    y = re.compile('[\.|\(|\[|\s](\d{4}|S\d*E\d*)[\.|\)|\]|\s]').findall(name)[-1]
+                    if not any(x == y for x in hdlr): raise Exception()
+
+                    fmt = re.sub('(.+)(\.|\(|\[|\s)(\d{4}|S\d*E\d*)(\.|\)|\]|\s)', '', name)
+                    fmt = re.split('\.|\(|\)|\[|\]|\s|\-', fmt)
+                    fmt = [x.lower() for x in fmt]
+
+                    if any(x.endswith(('subs', 'sub', 'dubbed', 'dub')) for x in fmt): raise Exception()
+                    if any(x in ['extras'] for x in fmt): raise Exception()
+
+                    res = i['video_info'].replace('\n','')
+                    res = re.compile(', (\d*)x\d*').findall(res)[0]
+                    res = int(res)
+                    if 1900 <= res <= 1920: quality = '1080p'
+                    elif 1200 <= res <= 1280: quality = 'HD'
+                    else: quality = 'SD'
+                    if any(x in ['dvdscr', 'r5', 'r6'] for x in fmt): quality = 'SCR'
+                    elif any(x in ['camrip', 'tsrip', 'hdcam', 'hdts', 'dvdcam', 'dvdts', 'cam', 'ts'] for x in fmt): quality = 'CAM'
+
+                    size = i['size']
+                    size = float(size)/1073741824
+                    if int(size) > 2 and not quality in ['1080p', 'HD']: raise Exception()
+
+                    url = i['url_pls']
+                    url = common.replaceHTMLCodes(url)
+                    url = url.encode('utf-8')
+
+                    info = i['video_info'].replace('\n','')
+                    v = re.compile('Video: (.+?),').findall(info)[0]
+                    a = re.compile('Audio: (.+?), .+?, (.+?),').findall(info)[0]
+                    q = quality
+                    if '3d' in fmt: q += ' | 3D'
+
+                    info = '%.2f GB | %s | %s | %s | %s' % (size, q, v, a[0], a[1])
+                    info = re.sub('\(.+?\)', '', info)
+                    info = info.replace('stereo', '2.0')
+                    info = ' '.join(info.split())
+                    info = info.upper()
+
+                    sources.append({'source': 'Furk', 'quality': quality, 'provider': 'Furk', 'url': url, 'info': info})
+                except:
+                    pass
+
+            if not all(i['quality'] in ['CAM', 'SCR'] for i in sources): 
+                sources = [i for i in sources if not i['quality'] in ['CAM', 'SCR']]
+
             return sources
         except:
             return sources
 
     def resolve(self, url):
         try:
+            query = self.base_link + self.login_link
+            post = urllib.urlencode({'login': self.user, 'pwd': self.password})
+            result = getUrl(query, post=post, close=False).result
+
             result = getUrl(url).result
-            url = re.compile("'file': '(.+?)'").findall(result)[0]
+            url = common.parseDOM(result, "location")[0]
             return url
         except:
             return

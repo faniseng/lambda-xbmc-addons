@@ -1,4 +1,22 @@
 ------------------------
+Genesis v2.1.3 (7-Oct-14)
+------------------------
+
+- Added Furk source.
+- Added Niter source.
+- Added support for more hosts.
+- Added support for Movreel accounts.
+- NOTE: Host priorities are reset because of new sources and hosts.
+- NOTE: Furk source is not available in autoplay.
+- Removed migration code of favourites, views etc.
+- Tweaked source filtering and autoplay.
+- Fixed issue with available sources.
+- Fixed issue with episode metadata.
+- Updated translations.
+- Code cosmetics.
+
+
+------------------------
 Genesis v2.1.2 (1-Oct-14)
 ------------------------
 
