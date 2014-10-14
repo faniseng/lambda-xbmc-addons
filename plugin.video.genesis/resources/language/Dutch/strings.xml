@@ -75,10 +75,10 @@
 	<string id="30309">Toegevoegd aan Film map</string>
 	<string id="30310">Toegevoegd aan Serie map</string>
 	<string id="30311">Bibliotheek geupdatet</string>
-	<string id="30311">Cache schoongemaakt</string>
-	<string id="30312">Ondertiteling niet beschikbaar</string>
-	<string id="30313">Stream niet beschikbaar</string>
-	<string id="30314">Begonnen in</string>
+	<string id="30312">Cache schoongemaakt</string>
+	<string id="30313">Ondertiteling niet beschikbaar</string>
+	<string id="30314">Stream niet beschikbaar</string>
+	<string id="30315">Begonnen in</string>
 	<!-- YesNo -->
 	<string id="30341">Je hebt geen Download-map ingesteld.</string>
 	<string id="30342">Wil je dat nu doen?</string>
@@ -98,7 +98,7 @@
 	<string id="30381">Volgende Pagina</string>
 	<string id="30382">Zoeken</string>
 	<!-- ContextMenu -->
-	<string id="30401">Pauze video</string>
+	<string id="30401">Aan afspeellijst toevoegen</string>
 	<string id="30402">Video Downloaden</string>
 	<string id="30403">Markeer als niet-bekeken</string>
 	<string id="30404">Markeer als bekeken</string>

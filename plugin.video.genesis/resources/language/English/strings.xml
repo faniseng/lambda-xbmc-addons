@@ -98,7 +98,7 @@
 	<string id="30381">Next Page</string>
 	<string id="30382">Search</string>
 	<!-- ContextMenu -->
-	<string id="30401">Queue video</string>
+	<string id="30401">Queue item</string>
 	<string id="30402">Download video</string>
 	<string id="30403">Mark as unwatched</string>
 	<string id="30404">Mark as watched</string>
