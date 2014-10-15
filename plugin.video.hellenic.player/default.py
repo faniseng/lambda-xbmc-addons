@@ -701,8 +701,7 @@ class episodes:
 class resolver:
     def run(self, url):
         try:
-            if url.startswith(mega().hls_link): url = mega().resolve_hls(url)
-            elif url.startswith(mega().base_link): url = mega().resolve(url)
+            if url.startswith(mega().base_link): url = mega().resolve(url)
             elif url.startswith(ant1().base_link): url = ant1().resolve(url)
             elif url.startswith(alpha().base_link): url = alpha().resolve(url)
             elif url.startswith(cybc().base_link): url = cybc().resolve(url)
@@ -725,12 +724,11 @@ class mega:
         self.list = []
         self.base_link = 'http://www.megatv.com'
         self.feed_link = 'http://megatv.feed.gr'
+        self.media_link = 'http://media.megatv.com'
         self.shows_link = 'http://megatv.feed.gr/mobile/mobile.asp?pageid=816&catidlocal=32623&subidlocal=20933'
         self.episodes_link = 'http://megatv.feed.gr/mobile/mobile/ekpompiindex_29954.asp?pageid=816&catidlocal=%s'
         self.news_link = 'http://www.megatv.com/webtv/default.asp?catid=27377&catidlocal=27377'
         self.sports_link = 'http://www.megatv.com/webtv/default.asp?catid=27377&catidlocal=27387'
-        self.info_link = 'http://www.megatv.com/XML/jw/videolists.asp?catid=%s&attributes=0&nostore=true'
-        self.hls_link = 'http://hdflashmegatv-f.akamaihd.net'
 
     def shows(self):
         #self.list = self.shows_list()
@@ -756,27 +754,39 @@ class mega:
 
         for show in shows:
             try:
-                name = common.parseDOM(show, "h5")[0]
+                name = common.parseDOM(show, "h1")[0]
                 name = common.replaceHTMLCodes(name)
                 name = name.encode('utf-8')
 
-                url = common.parseDOM(show, "a", ret="data-params")[0]
                 tpl = common.parseDOM(show, "a", ret="data-tpl")[0]
-                if tpl == 'ekpompiindex': url = self.episodes_link % url.split("catid=")[-1]
-                elif tpl == 'gegonota_home': url = self.news_link
-                else: raise Exception()
+                if not tpl == 'ekpompiindex': raise Exception()
+
+                url = common.parseDOM(show, "a", ret="data-params")[0]
+                url = self.episodes_link % url.split("catid=")[-1]
                 url = common.replaceHTMLCodes(url)
                 url = url.encode('utf-8')
 
-                image = common.parseDOM(show, "img", ret="src")[0]
-                image = common.replaceHTMLCodes(image)
-                image = image.encode('utf-8')
-
-                self.list.append({'name': name, 'url': url, 'image': image, 'genre': 'Greek', 'plot': ''})
+                self.list.append({'name': name, 'url': url, 'image': '', 'genre': 'Greek', 'plot': ''})
             except:
                 pass
 
+        threads = []
+        for i in range(0, len(self.list)): threads.append(Thread(self.shows_info, i))
+        [i.start() for i in threads]
+        [i.join() for i in threads]
+
         return self.list
+
+    def shows_info(self, i):
+        try:
+            result = getUrl(self.list[i]['url'], mobile=True).result
+
+            image = common.parseDOM(result, "img", ret="src")[0]
+            image = common.replaceHTMLCodes(image)
+            image = image.encode('utf-8')
+            self.list[i].update({'image': image})
+        except:
+            pass
 
     def episodes_list(self, name, url, image, genre, plot, show):
         try:
@@ -793,6 +803,8 @@ class mega:
                 name = name.encode('utf-8')
 
                 url = common.parseDOM(episode, "a", ret="data-vUrl")[0]
+                url = url.replace(',', '').split('/i/', 1)[-1].rsplit('.csmil', 1)[0]
+                url = '%s/%s' % (self.media_link, url)
                 url = common.replaceHTMLCodes(url)
                 url = url.encode('utf-8')
 
@@ -849,31 +861,8 @@ class mega:
 
     def resolve(self, url):
         try:
-            url = url.split("catid=")[-1]
-            url = self.info_link % url
             result = getUrl(url).result
-
-            playpath = common.parseDOM(result, "location")[-1]
-            try: rtmp = common.parseDOM(result, "meta", attrs = { "rel": "streamer" })[0]
-            except: rtmp = ''
-
-            if playpath.endswith("/manifest.f4m"):
-                rtmp = 'rtmp://cp78455.edgefcs.net/ondemand/vod/'
-                try: playpath = re.compile('.+?,.+?,(.+?),.csmil/manifest.f4m').findall(playpath)[0]
-                except: playpath = re.compile('.+?,(.+?),.csmil/manifest.f4m').findall(playpath)[0]
-
-            url = '%s%s timeout=10' % (rtmp, playpath)
-            if not url.startswith('rtmp://'): url = '%s%s' % (rtmp, playpath)
-            return url
-        except:
-            return
-
-    def resolve_hls(self, url):
-        try:
-            rtmp = 'rtmp://cp78455.edgefcs.net/ondemand/vod/'
-            playpath = url.replace(',', '')
-            playpath = re.compile('/i/(.+?)[.]csmil').findall(playpath)[0]
-            url = '%s%s timeout=10' % (rtmp, playpath)
+            url = re.compile('{file:"(%s/.+?)"' % self.media_link).findall(result)[0]
             return url
         except:
             return
@@ -1100,14 +1089,15 @@ class alpha:
 
     def episodes_list(self, name, url, image, genre, plot, show):
         try:
-            redirects = [url + '/webtv/shows?page=0', url + '/webtv/shows?page=1', url + '/webtv/shows?page=2', url + '/webtv/shows?page=3', url + '/webtv/episodes?page=0', url + '/webtv/episodes?page=1', url + '/webtv/episodes?page=2', url + '/webtv/episodes?page=3', url + '/webtv/news?page=0', url + '/webtv/news?page=1']
+            redirects = ['/webtv/shows?page=0', '/webtv/shows?page=1', '/webtv/shows?page=2', '/webtv/shows?page=3', '/webtv/episodes?page=0', '/webtv/episodes?page=1', '/webtv/episodes?page=2', '/webtv/episodes?page=3', '/webtv/news?page=0', '/webtv/news?page=1']
+            base = url
 
             count = 0
             threads = []
             result = ''
             for redirect in redirects:
                 self.data.append('')
-                threads.append(Thread(self.thread, redirect, count))
+                threads.append(Thread(self.thread, url + redirect, count))
                 count = count + 1
             [i.start() for i in threads]
             [i.join() for i in threads]
@@ -1128,6 +1118,9 @@ class alpha:
                 url = '%s%s' % (self.base_link, url)
                 url = common.replaceHTMLCodes(url)
                 url = url.encode('utf-8')
+
+                if not url.startswith(base): raise Exception()
+                if url in [i['url'] for i in self.list]: raise Exception()
 
                 image = common.parseDOM(episode, "img", ret="src")[-1]
                 if not image.startswith('http://'): image = '%s%s' % (self.base_link, image)
@@ -2125,10 +2118,6 @@ class youtube:
 
     def resolve_search(self, url):
         try:
-            if index().addon_status('plugin.video.youtube') is None:
-                index().okDialog(language(30321).encode("utf-8"), language(30322).encode("utf-8"))
-                return
-
             query = url.split("?q=")[-1].split("/")[-1].split("?")[0]
             url = url.replace(query, urllib.quote_plus(query))
             result = getUrl(url).result
@@ -2145,9 +2134,6 @@ class youtube:
 
     def resolve(self, url):
         try:
-            if index().addon_status('plugin.video.youtube') is None:
-                index().okDialog(language(30321).encode("utf-8"), language(30322).encode("utf-8"))
-                return
             id = url.split("?v=")[-1].split("/")[-1].split("?")[0].split("&")[0]
             state, reason = None, None
             result = getUrl(self.info_link % id).result
