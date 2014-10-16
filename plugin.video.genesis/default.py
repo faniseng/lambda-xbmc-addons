@@ -5547,7 +5547,8 @@ class popcornered:
     def resolve(self, url):
         try:
             result = getUrl(url, mobile=True).result
-            url = common.parseDOM(result, "iframe", ret="data-video", attrs = { "onload": ".+?" })[0]
+            url = common.parseDOM(result, "script", attrs = { "type": "text/javascript" })
+            url = re.compile('file:"(.+?)"').findall(str(url))[0]
             url = '%s/%s' % (self.base_link, url)
             return url
         except:
@@ -5786,38 +5787,9 @@ class shush:
             url = self.base_link + url
 
             result = getUrl(url).result
-            result = re.compile(',(http.+?proxy[.]swf)&proxy[.]link=([^&]+)').findall(result)[-1]
 
-            if result[1].startswith('http'):
-                b = result[0].replace('proxy.swf', '')
-                p = b + 'pluginslist.xml'
-                p = getUrl(p).result
-                p = re.compile('url="(.*?)b.swf').findall(p)[-1]
-                p = b + p + 'plugins_player.php'
-
-                post = urllib.urlencode({'url': result[1], 'isslverify': 'true', 'ihttpheader': 'true', 'iheader': 'true', 'iagent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:22.0) Gecko/20100101 Firefox/22.0'})
-
-                request = urllib2.Request(p, post)
-                response = urllib2.urlopen(request, timeout=5)
-                result = response.read()
-                response.close()
-
-                url = re.compile('"url":"(.+?)"').findall(result)
-                url = [i for i in url if 'videoplayback?' in i][-1]
-                url = getUrl(url, output='geturl').result
-
-            else:
-                import GKDecrypter
-                url = result[1].split('*', 1)[-1]
-                url = GKDecrypter.decrypter(198,128).decrypt(url,base64.urlsafe_b64decode('djRBdVhhalplRm83akFNZ1VOWkI='),'ECB').split('\0')[0]
-
-            import commonresolvers
-            if 'docs.google.com' in url:
-                url = commonresolvers.googledocs(url)
-            elif 'picasaweb.google.com' in url:
-                url = commonresolvers.picasaweb(url)
-
-            if not any(x in url for x in ['&itag=22&', '&itag=37&', '&itag=38&', '&itag=45&', '&itag=84&', '&itag=102&', '&itag=120&', '&itag=121&']): raise Exception()
+            url = common.parseDOM(result, "param", ret="value")
+            url = [i for i in url if 'proxy.link=' in i][-1]
 
             sources.append({'source': 'Shush', 'quality': 'HD', 'provider': 'Shush', 'url': url})
 
@@ -5827,10 +5799,55 @@ class shush:
 
     def resolve(self, url):
         try:
+            u = re.compile(',(http.+?proxy[.]swf)&proxy[.]link=([^&]+)').findall(url)[-1]
+
+            if u[1].startswith('http'):
+                b = u[0].replace('proxy.swf', '')
+                p = b + 'pluginslist.xml'
+                p = getUrl(p).result
+                p = re.compile('url="(.*?).swf').findall(p)
+                p = [i for i in p if '/' in i]
+                p = [i.rsplit('/', 1)[0] for i in p]
+                p = ['%s/%s/plugins_player.php' % (b, i) for i in p]
+                p = uniqueList(p).list
+
+                post = urllib.urlencode({'url': u[1], 'isslverify': 'true', 'ihttpheader': 'true', 'iheader': 'true', 'iagent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:22.0) Gecko/20100101 Firefox/22.0'})
+
+                threads = []
+                self.data = ''
+                for i in p: threads.append(Thread(self.resolve_p, i, post))
+                [i.start() for i in threads]
+                [i.join() for i in threads]
+
+                url = re.compile('"url":"(.+?)"').findall(self.data)
+                url = [i for i in url if 'videoplayback?' in i][-1]
+
+            else:
+                import GKDecrypter
+                url = u[1].split('*', 1)[-1]
+                url = GKDecrypter.decrypter(198,128).decrypt(url,base64.urlsafe_b64decode('djRBdVhhalplRm83akFNZ1VOWkI='),'ECB').split('\0')[0]
+
+
+            import commonresolvers
+            if 'docs.google.com' in url:
+                url = commonresolvers.googledocs(url)
+            elif 'picasaweb.google.com' in url:
+                url = commonresolvers.picasaweb(url)
+
+            #if not any(x in url for x in ['&itag=22&', '&itag=37&', '&itag=38&', '&itag=45&', '&itag=84&', '&itag=102&', '&itag=120&', '&itag=121&']): raise Exception()
+
             url = getUrl(url, output='geturl').result
             if 'requiressl=yes' in url: url = url.replace('http://', 'https://')
             else: url = url.replace('https://', 'http://')
             return url
+        except:
+            return
+
+    def resolve_p(self, url, post):
+        try:
+            request = urllib2.Request(url, post)
+            response = urllib2.urlopen(request, timeout=5)
+            self.data += response.read()
         except:
             return
 

@@ -1,4 +1,13 @@
 ------------------------
+Genesis v2.2.1 (16-Oct-14)
+------------------------
+
+- Fixed issue with Popcornered source.
+- Fixed issue with Shush source.
+- Code cosmetics.
+
+
+------------------------
 Genesis v2.2.0 (14-Oct-14)
 ------------------------
 
