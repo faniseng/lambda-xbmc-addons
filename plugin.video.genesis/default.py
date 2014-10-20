@@ -227,7 +227,7 @@ class getUrl(object):
         if mobile == True:
             request.add_header('User-Agent', 'Mozilla/5.0 (iPhone; CPU; CPU iPhone OS 4_0 like Mac OS X; en-us) AppleWebKit/532.9 (KHTML, like Gecko) Version/4.0.5 Mobile/8A293 Safari/6531.22.7')
         else:
-            request.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.57 Safari/537.36')
+            request.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:22.0) Gecko/20100101 Firefox/22.0')
         if not referer == None:
             request.add_header('Referer', referer)
         if not cookie == None:
@@ -1690,80 +1690,37 @@ class contextMenu:
 
     def download(self, name, url, provider):
         try:
-            property = (addonName+name)+'download'
-            download = xbmc.translatePath(getSetting("downloads"))
+            folder = xbmc.translatePath(getSetting("downloads"))
             enc_name = name.translate(None, '\/:*?"<>|').strip('.')
             xbmcvfs.mkdir(dataPath)
-            xbmcvfs.mkdir(download)
+            xbmcvfs.mkdir(folder)
 
-            file = [i for i in xbmcvfs.listdir(download)[1] if i.startswith(enc_name + '.')]
-            if not file == []: file = os.path.join(download, file[0])
-            else: file = None
-
-            if download == '':
+            if folder == '':
             	yes = index().yesnoDialog(language(30341).encode("utf-8"), language(30342).encode("utf-8"))
             	if yes: contextMenu().settings_open()
             	return
 
-            if file == None:
-            	pass
-            elif not file.endswith('.tmp'):
-            	yes = index().yesnoDialog(language(30343).encode("utf-8"), language(30344).encode("utf-8"), name)
-            	if yes:
-            	    xbmcvfs.delete(file)
-            	else:
-            	    return
-            elif file.endswith('.tmp'):
-            	if index().getProperty(property) == 'open':
-            	    yes = index().yesnoDialog(language(30345).encode("utf-8"), language(30346).encode("utf-8"), name)
-            	    if yes: index().setProperty(property, 'cancel')
-            	    return
-            	else:
-            	    xbmcvfs.delete(file)
-
             url = resolver().sources_resolve(url, provider)
-            if url == None: return
-            url = url.rsplit('|', 1)[0]
-            ext = url.rsplit('/', 1)[-1].rsplit('?', 1)[0].rsplit('|', 1)[0].strip().lower()
+            if url == None: raise Exception()
+
+            import urlparse
+            ext = urlparse.urlsplit(url.split('|')[0]).path.split('/')[-1]
             ext = os.path.splitext(ext)[1][1:]
-            if ext == '' or ext == 'php': ext = 'mp4'
-            stream = os.path.join(download, enc_name + '.' + ext)
-            temp = stream + '.tmp'
+            if ext in ['', 'php']: ext = 'mp4'
+            dest = os.path.join(folder, enc_name + '.' + ext)
 
-            count = 0
-            CHUNK = 16 * 1024
-            request = urllib2.Request(url)
-            request.add_header('User-Agent', 'Mozilla/5.0 (iPhone; CPU; CPU iPhone OS 4_0 like Mac OS X; en-us) AppleWebKit/532.9 (KHTML, like Gecko) Version/4.0.5 Mobile/8A293 Safari/6531.22.7')
-            request.add_header('Cookie', 'video=true')
-            response = urllib2.urlopen(request, timeout=5)
-            size = response.info()["Content-Length"]
+            try: agent = urlparse.parse_qs(url.split('|')[1])['User-Agent'][0]
+            except: agent = None
+            try: referer = urlparse.parse_qs(url.split('|')[1])['Referer'][0]
+            except: referer = None
+            try: cookie = urlparse.parse_qs(url.split('|')[1])['Cookie'][0]
+            except: cookie = None
 
-            file = xbmcvfs.File(temp, 'w')
-            index().setProperty(property, 'open')
-            index().infoDialog(language(30306).encode("utf-8"), name)
-            while True:
-            	chunk = response.read(CHUNK)
-            	if not chunk: break
-            	if index().getProperty(property) == 'cancel': raise Exception()
-            	if xbmc.abortRequested == True: raise Exception()
-            	part = xbmcvfs.File(temp)
-            	quota = int(100 * float(part.size())/float(size))
-            	part.close()
-            	if not count == quota and count in [0,10,20,30,40,50,60,70,80,90]:
-            		index().infoDialog(language(30307).encode("utf-8") + str(count) + '%', name)
-            	file.write(chunk)
-            	count = quota
-            response.close()
-            file.close()
+            url = url.split('|')[0]
 
-            index().clearProperty(property)
-            xbmcvfs.rename(temp, stream)
-            index().infoDialog(language(30308).encode("utf-8"), name)
+            import commondownloader
+            commondownloader.download(url, dest, 'Genesis', referer=referer, agent=agent, cookie=cookie)
         except:
-            file.close()
-            index().clearProperty(property)
-            xbmcvfs.delete(temp)
-            sys.exit()
             return
 
     def toggle_playback(self, content, name, title, year, imdb, tvdb, season, episode, show, show_alt, date, genre):
@@ -5490,8 +5447,13 @@ class movieshd:
 
             url = self.base_link + url
             result = getUrl(url).result
-            url = common.parseDOM(result, "div", attrs = { "class": "video-embed" })[0]
-            url = re.compile("ref='(.+?)'").findall(url)[0]
+            result = common.parseDOM(result, "div", attrs = { "class": "video-embed" })[0]
+
+            url = re.compile("data-rocketsrc='(.+?)'").findall(result)
+            url = [i for i in url if 'hashkey' in i]
+            if len(url) > 0: result = getUrl(url[0]).result
+            url = re.compile('ref=[\'|\"](.+?)[\'|\"]').findall(result)[0]
+
             url = self.player_link % url
             url = url.encode('utf-8')
 
@@ -5802,37 +5764,42 @@ class shush:
             u = re.compile(',(http.+?proxy[.]swf)&proxy[.]link=([^&]+)').findall(url)[-1]
 
             if u[1].startswith('http'):
-                b = u[0].replace('proxy.swf', '')
-                p = b + 'pluginslist.xml'
-                p = getUrl(p).result
-                p = re.compile('url="(.*?).swf').findall(p)
-                p = [i for i in p if '/' in i]
-                p = [i.rsplit('/', 1)[0] for i in p]
-                p = ['%s/%s/plugins_player.php' % (b, i) for i in p]
-                p = uniqueList(p).list
+                import urlparse
 
-                post = urllib.urlencode({'url': u[1], 'isslverify': 'true', 'ihttpheader': 'true', 'iheader': 'true', 'iagent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:22.0) Gecko/20100101 Firefox/22.0'})
+                p = u[1]
+                b = u[0].replace(urlparse.urlsplit(u[0]).path.split('/')[-1], '')
+                u = urlparse.urljoin(b, 'pluginslist.xml')
+
+                u = getUrl(u).result
+                u = re.compile('url=[\'|\"](.*?)[\'|\"]').findall(u)
+                u = [i for i in u if '/' in i]
+                u = [urlparse.urljoin(b, i) for i in u]
+                u = uniqueList(u).list
 
                 threads = []
                 self.data = ''
-                for i in p: threads.append(Thread(self.resolve_p, i, post))
+                for i in u: threads.append(Thread(self.resolve_p, i, p))
+                #for i in u: self.resolve_p(i, p)
                 [i.start() for i in threads]
                 [i.join() for i in threads]
 
-                url = re.compile('"url":"(.+?)"').findall(self.data)
-                url = [i for i in url if 'videoplayback?' in i][-1]
+                url = None
+                try: url = json.loads(re.compile('(\["fmt_stream_map".+?\])').findall(self.data)[0])[1].split('|')[-1]
+                except: pass
+                try: url = [i for i in re.compile('"url":"(.+?)"').findall(self.data) if 'videoplayback?' in i][-1]
+                except: pass
 
             else:
                 import GKDecrypter
                 url = u[1].split('*', 1)[-1]
                 url = GKDecrypter.decrypter(198,128).decrypt(url,base64.urlsafe_b64decode('djRBdVhhalplRm83akFNZ1VOWkI='),'ECB').split('\0')[0]
 
+                import commonresolvers
+                if 'docs.google.com' in url:
+                    url = commonresolvers.googledocs(url)
+                elif 'picasaweb.google.com' in url:
+                    url = commonresolvers.picasaweb(url)
 
-            import commonresolvers
-            if 'docs.google.com' in url:
-                url = commonresolvers.googledocs(url)
-            elif 'picasaweb.google.com' in url:
-                url = commonresolvers.picasaweb(url)
 
             #if not any(x in url for x in ['&itag=22&', '&itag=37&', '&itag=38&', '&itag=45&', '&itag=84&', '&itag=102&', '&itag=120&', '&itag=121&']): raise Exception()
 
@@ -5843,10 +5810,25 @@ class shush:
         except:
             return
 
-    def resolve_p(self, url, post):
+    def resolve_p(self, i, p):
         try:
+            import urlparse
+            x = urlparse.urlsplit(i)
+
+            url = '%s://%s%s/plugins_player.php' % (x.scheme, x.netloc, x.path.rsplit('/', 1)[0])
+            post = urllib.urlencode({'url': p, 'isslverify': 'true', 'ihttpheader': 'true', 'iheader': 'true', 'iagent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:22.0) Gecko/20100101 Firefox/22.0'})
+
             request = urllib2.Request(url, post)
-            response = urllib2.urlopen(request, timeout=5)
+
+            request.add_header('Host', x.netloc)
+            request.add_header('Connection', 'keep-alive')
+            request.add_header('Origin', '%s://%s' % (x.scheme, x.netloc))
+            request.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.120 Safari/537.36')
+            request.add_header('Content-Type', 'application/x-www-form-urlencoded')
+            request.add_header('Accept', '*/*')
+            request.add_header('Referer', i)
+
+            response = urllib2.urlopen(request, timeout=10)
             self.data += response.read()
         except:
             return
@@ -6524,10 +6506,18 @@ class myvideolinks:
                     else: quality = 'HD'
 
                     info = ''
-                    size = re.compile('Size: (.+? .+?B) ').findall(link)
-                    if len(size) > 0: info += '%s | %s' % (size[-1], quality)
-                    else: info += '%s' % quality
-                    if '3-D Movies' in cat: info += ' | 3D'
+                    size = re.compile('Size: (.+? [M|G]B) ').findall(link)
+                    if len(size) > 0:
+                        size = size[-1]
+                        if size.endswith(' GB'): div = 1
+                        else: div = 1024
+                        size = float(re.sub('[^0-9|/.|/,]', '', size))/div
+                        info += '%.2f GB | %s' % (size, quality)
+                    else:
+                        info += '%s' % quality
+
+                    if '3-D Movies' in cat:
+                        info += ' | 3D'
 
                     try:
                         result = getUrl(url).result
@@ -6638,8 +6628,14 @@ class tvrelease:
                     info = ''
                     size = common.parseDOM(link, "td")
                     size = [i for i in size if i.endswith((' MB', ' GB'))]
-                    if len(size) > 0: info += '%s | %s' % (size[-1], quality)
-                    else: info += '%s' % quality
+                    if len(size) > 0:
+                        size = size[-1]
+                        if size.endswith(' GB'): div = 1
+                        else: div = 1024
+                        size = float(re.sub('[^0-9|/.|/,]', '', size))/div
+                        info += '%.2f GB | %s' % (size, quality)
+                    else:
+                        info += '%s' % quality
 
                     result = getUrl(url).result
                     result = common.parseDOM(result, "td", attrs = { "class": "td_cols" })[0]
@@ -6722,7 +6718,6 @@ class directdownload:
 
             for link in links:
                 try:
-
                     name = link['release']
                     name = common.replaceHTMLCodes(name)
 
@@ -6732,6 +6727,10 @@ class directdownload:
 
                     y = re.compile('[\.|\(|\[|\s](S\d*E\d*)[\.|\)|\]|\s]').findall(name)[-1]
                     if not any(x == y for x in hdlr): raise Exception()
+
+                    p = link['links']
+                    p = [i['hostname'] for i in p]
+                    if not len(p) == len(uniqueList(p).list): raise Exception()
 
                     quality = link['quality']
                     quality = common.replaceHTMLCodes(quality)

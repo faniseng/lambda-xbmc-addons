@@ -1,4 +1,17 @@
 ------------------------
+Genesis v2.2.2 (20-Oct-14)
+------------------------
+
+- Added support for Download Script by spoyser.
+- Fixed issue with Directdownload source.
+- Fixed issue with MoviesHD source.
+- Fixed issue with Shush source.
+- Tweaked Myvideolinks source.
+- Tweaked TVrelease source.
+- Code cosmetics.
+
+
+------------------------
 Genesis v2.2.1 (16-Oct-14)
 ------------------------
 
