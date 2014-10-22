@@ -5753,7 +5753,7 @@ class shush:
             url = common.parseDOM(result, "param", ret="value")
             url = [i for i in url if 'proxy.link=' in i][-1]
 
-            sources.append({'source': 'Shush', 'quality': 'HD', 'provider': 'Shush', 'url': url})
+            #sources.append({'source': 'Shush', 'quality': 'HD', 'provider': 'Shush', 'url': url})
 
             return sources
         except:
@@ -6586,8 +6586,9 @@ class tvrelease:
         try:
             sources = []
 
-            query = urllib.quote_plus(url)
-            query = self.base_link + self.search_link % query
+            query = url.replace('\'', '').replace('.', ' ')
+            query = re.sub('\s+',' ',query)
+            query = self.base_link + self.search_link % urllib.quote_plus(query)
 
             result = getUrl(query).result
             links = common.parseDOM(result, "table", attrs = { "class": "posts_table" })

@@ -20,6 +20,7 @@ import urllib2
 import xbmc
 import xbmcgui
 import xbmcplugin
+import xbmcvfs
 import os
 import inspect
 
@@ -106,7 +107,10 @@ def doDownload(url, dest, title, referer, agent, cookie):
     if xbmcgui.Dialog().yesno(title + ' - Confirm Download', file, 'Complete file is %dMB' % mb, 'Continue with download?', 'Confirm',  'Cancel') == 1:
         return
 
-    f = open(dest, mode='wb')
+    print 'Download File Size : %dMB %s ' % (mb, dest)
+
+    #f = open(dest, mode='wb')
+    f = xbmcvfs.File(dest, 'w')
 
     chunk  = None
     chunks = []
@@ -118,6 +122,9 @@ def doDownload(url, dest, title, referer, agent, cookie):
         percent = min(100 * downloaded / content, 100)
         if percent >= notify:
             xbmc.executebuiltin( "XBMC.Notification(%s,%s,%i)" % ( title + ' - Download Progress - ' + str(percent)+'%', dest, 10000))
+
+            print 'Download percent : %s %s %dMB downloaded : %sMB File Size : %sMB' % (str(percent)+'%', dest, mb, downloaded / 1000000, content / 1000000)
+
             notify += 10
 
         chunk = None
