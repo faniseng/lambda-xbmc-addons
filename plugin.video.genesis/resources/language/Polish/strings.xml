@@ -172,9 +172,9 @@
 	<string id="30583">Aktorzy Filmowi</string>
 	<string id="30584">Aktorzy Serialowi</string>
 	<string id="30601">Otwórz ustawienia Genesis...</string>
-	<string id="30602">Otwórz ustawienia Metahandlera...</string>
-	<string id="30603">Otwórz ustawienia URLResolvera...</string>
-	<string id="30604">Wyczyść pamięć podręczną Genesis...</string>
+	<string id="30602">Otwórz ustawienia URLResolvera...</string>
+	<string id="30603">Wyczyść pamięć podręczną Genesis...</string>
+	<string id="30604">Clear Genesis sources...</string>
 	<string id="30605">Aktualizuj foldery Genesis...</string>
 	<string id="30606">[B]TRAKT[/B] : Importuj Collection...</string>
 	<string id="30607">[B]TRAKT[/B] : Importuj TV Collection...</string>
