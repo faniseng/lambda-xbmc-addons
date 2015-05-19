@@ -1,8 +1,3 @@
-Repo moved to Gitlab
+Repo moved
 ---------------------
-https://offshoregit.com/lambda81/lambda-addons
-
-
-Available for backup purposes
----------------------
-https://github.com/lambda81/lambda-addons
+https:://github.com/lambda81/lambda-addons
